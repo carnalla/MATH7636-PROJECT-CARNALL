@@ -1,0 +1,254 @@
+---
+title: "Wine_Project"
+author: "Pashupati Shah"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+### NAMES AND UUIDs OF GROUP MEMBERS
+
+* Alexander Carnall - U00650848
+* Pashupati Shah - U00478152
+* Shyam Krishna - U00868371
+
+### CHOSEN DATASET SOURCE
+
+For this project, we have chosen the 'Wine' dataset which can be found at: 
+
+https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/ 
+
+### PRIMARY ANALYTICAL QUESTION & STATISTICAL LEARNING TASK
+
+Our dataset contains 1599 red wine samples described by 11 quantitative features. The response variable is an expert grading of wine quality (as the median of at least 3 expert evaluations) which can have possible values from 0 (very bad) to 10 (very excellent), although only values from 3 to 8 were observed in our dataset. We also have created a qualitative response variable from these ratings such that any wine rated at least '6' was categorized as 'High' quality, and any wine rated less than 6 was assigned label 'Low' quality.
+
+[1] Our first analytical question is the prediction of wine quality (e.g., 3-8) using regression methods. 
+
+[2] Our second analytical question is the prediction of wine category (e.g., 'High' or 'Low') using classification methods.
+
+### IMPORT NECESSARY LIBRARIES
+```{r}
+library(dplyr)
+library(ggplot2)
+library(gam)
+library(nnet)
+library(mgcv)
+```
+
+### LOAD THE DATA
+
+```{r, warning = FALSE, message = FALSE}
+# Set the working directory
+wd = setwd('C:\\Users\\pashu\\OneDrive\\Desktop\\winequality')
+# Load the wine quality dataset
+wineRed = read.csv(file.path(wd, 'winequality-red.csv'), sep = ';', check.names = FALSE)
+
+```
+
+
+
+### UNDERSTAND THE DATA
+Attributes of the dataset as well as variable types are shown here:
+
+```{r, warning = FALSE, message = FALSE}
+str(wineRed)
+```
+```{r}
+# Check the dimensions of the dataset
+dim(wineRed)
+```
+```{r}
+# check for missing values
+any(is.na(wineRed))
+```
+There are no missing values
+
+
+```{r}
+# Print the first few rows of the dataset
+head(wineRed)
+```
+
+Descriptive statistics for each variable in the dataset are shown next:
+
+```{r, warning = FALSE, message = FALSE}
+
+summary(wineRed)
+
+```
+
+### Data Preprocessing 
+
+#### FEATURE ENGINEERING
+```{r}
+# Create a categorical column based on quality
+wineRed$quality_category <- ifelse(wineRed$quality < 6, "low", "high")
+
+# Print the first few rows of the updated dataset
+head(wineRed)
+```
+
+```{r}
+# Changing character class to factor
+wineRed$quality_category <- as.factor(wineRed$quality_category)
+
+
+# Print the first few rows of the updated dataset
+head(wineRed)
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+
+summary(wineRed)
+
+```
+
+```{r}
+names(wineRed)
+
+```
+
+
+```{r}
+# create a vector of new column names
+new_names <- c("fixed_acidity", "volatile_acidity", "citric_acid", "residual_sugar",
+               "chlorides", "free_sulfur_dioxide", "total_sulfur_dioxide", "density",
+               "pH", "sulphates", "alcohol", "quality", "quality_category")
+
+# rename the columns of the wine dataset
+colnames(wineRed) <- new_names
+
+# view the new column names
+colnames(wineRed)
+```
+```{r}
+# Calculate the correlation coefficients between predictors and quality
+correlations <- cor(wineRed[, 1:11], wineRed$quality)
+print(correlations)
+```
+
+
+
+
+
+## REGRESSION
+### DATA PROCESSING
+
+```{r}
+attach(wineRed)
+```
+
+
+```{r}
+predictor_cols <- head(names(wineRed), -2)
+predictor_cols
+```
+
+
+```{r}
+for (predictor in predictor_cols) {
+  for (i in 1:5) {
+    fit.i <- lm(quality ~ poly(get(predictor), i), data = wineRed)
+  }
+    print(predictor)
+    print(summary(fit.i))
+}
+
+```
+
+
+
+
+
+```{r}
+# Convert quality to a factor variable
+wineRed$quality <- factor(wineRed$quality)
+```
+
+#### SPLITTING THE DATA INTO TRAIN AND TEST SET
+I split the data in training set and test set. Training set will contain 80% of the data and test set will contain 20% of the data.
+
+
+```{r}
+
+# Split the data into training and test sets
+set.seed(123)
+train_index <- sample(nrow(wineRed), 0.8 * nrow(wineRed))
+train_set <- wineRed[train_index, ]
+test_set <- wineRed[-train_index, ]
+
+# Fit the polynomial multinomial logistic regression model with different polynomial degrees for each predictor
+
+
+model <- nnet::multinom(quality ~ poly(fixed_acidity, 4) + poly(volatile_acidity, 3) + poly(citric_acid, 3) + poly(chlorides, 4) + poly(free_sulfur_dioxide, 1) + poly(total_sulfur_dioxide, 4) + poly(density, 2) + poly(pH, 1) + poly(sulphates, 4) + poly(alcohol, 3) + residual_sugar, train_set)
+
+
+# Make predictions on the test set
+predictions <- predict(model, newdata = test_set)
+
+# Evaluate the model performance
+confusion_matrix <- table(predictions, test_set$quality)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(confusion_matrix)
+cat("Accuracy:", accuracy, "\n")
+```
+
+
+## CLassification
+#### FITTING THE LOGISTIC REGRESSION
+```{r}
+smp_size <- floor(nrow(wineRed)*0.7)
+smp_size
+```
+
+```{r}
+set.seed(1234)
+train_ind <- sample(seq_len(nrow(wineRed)), size = smp_size)
+
+train_set <- wineRed[train_ind, ]
+test_set <- wineRed[-train_ind, ]
+```
+
+```{r}
+print(dim(train_set))
+print(dim(test_set))
+```
+
+
+
+
+
+```{r}
+glm.fits.train <- glm(quality_category ~ fixed_acidity + volatile_acidity + citric_acid + chlorides + free_sulfur_dioxide + total_sulfur_dioxide + density + pH + sulphates + alcohol + residual_sugar, family = binomial, data = train_set)
+summary(glm.fits.train)
+```
+
+
+
+```{r}
+glm.probs2 <- predict(glm.fits.train, test_set, type = "response")
+```
+
+```{r}
+glm.pred2 <- rep("high", 480)
+glm.pred2[glm.probs2 > 0.5] = "low"
+```
+
+```{r}
+table(glm.pred2, test_set$quality_category)
+```
+The diagonal elements of the confusion matrix indicate correct predictions, while the off -diagonals represent incorrect predictions. Hence our model correctly predicted that the 348 instances of wine correctly.
+
+```{r}
+mean(glm.pred2 == test_set$quality_category)
+```
+Accuracy Rate is 72.5%
+```{r}
+#test_set error rate
+mean(glm.pred2 != test_set$quality_category)
+```
+Test Error Rate is 27.5&
+
+#### RESULTS
+
+The logistic Regression model has 72.5% accuracy and 27.5% error rate.
